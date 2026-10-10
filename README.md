@@ -3,8 +3,11 @@
 [![Foundry](https://img.shields.io/badge/Foundry-v1.8.4-red.svg)](https://getfoundry.sh/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Solidity](https://img.shields.io/badge/Solidity-0.8.26-363636.svg)](https://soliditylang.org/)
+[![Live Telemetry](https://img.shields.io/badge/Live%20Telemetry-v4--volatility--fee--hook.vercel.app-06b6d4.svg?logo=vercel&logoColor=white)](https://v4-volatility-fee-hook.vercel.app)
 
 A production-grade, gas-optimized **Uniswap v4 Hook** that dynamically scales liquidity provider (LP) swap fees in response to realized tick volatility, directly mitigating **Loss-Versus-Rebalancing (LVR)** and toxic MEV arbitrage.
+
+🌐 **Live Telemetry & Interactive Visualizer**: [https://v4-volatility-fee-hook.vercel.app](https://v4-volatility-fee-hook.vercel.app)
 
 ---
 

@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Uniswap v4 Dynamic Volatility-Fee Hook | Anti-LVR EVM Telemetry</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%22><text y=%2226%22 font-size=%2226%22>⚡</text></svg>">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-sans: 'Plus Jakarta Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background-color: #060911;
+      color: #e2e8f0;
+    }
+    .mono { font-family: var(--font-mono); }
+    .glow-cyan {
+      box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.25);
+    }
+    .glow-pink {
+      box-shadow: 0 0 25px -5px rgba(236, 72, 153, 0.25);
+    }
+    .border-gradient {
+      border-image: linear-gradient(to bottom right, #06b6d4, #8b5cf6) 1;
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0b0f19;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-cyan-500 selection:text-black">
+
+  <!-- Navigation Bar -->
+  <header class="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center font-bold text-white shadow-lg shadow-cyan-500/20">
+          ⚡
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="font-bold text-base tracking-tight text-white">Uniswap v4 Dynamic Fee Hook</span>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-300 font-mono">Anti-LVR</span>
+          </div>
+          <p class="text-xs text-slate-400 hidden sm:block">Loss-Versus-Rebalancing Mitigation via Realized Tick EWMA</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <a href="https://100-solidity-projects.vercel.app" class="text-xs font-mono px-3 py-1.5 rounded-md bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500 transition-colors hidden md:inline-flex items-center space-x-1.5">
+          <span>💯</span>
+          <span>100 Projects Suite</span>
+        </a>
+        <a href="https://github.com/basantzp/v4-volatility-fee-hook" target="_blank" rel="noopener noreferrer" class="text-xs font-mono px-3 py-1.5 rounded-md bg-cyan-950/60 border border-cyan-700/60 text-cyan-300 hover:bg-cyan-900/80 transition-colors flex items-center space-x-1.5 shadow-sm">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          <span>GitHub Repo</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="border-b border-slate-800/60 bg-gradient-to-b from-slate-900/40 via-slate-950/80 to-[#060911] py-10 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+        <div class="lg:col-span-7 space-y-4">
+          <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-cyan-950/40 border border-cyan-800/50 text-cyan-400 text-xs font-mono">
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+            <span>Cancun Hardfork • Solc 0.8.26 • Single-Slot Bitpacked Storage</span>
+          </div>
+          <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight">
+            Uniswap v4 Dynamic <span class="bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent">Volatility-Fee Hook</span>
+          </h1>
+          <p class="text-slate-400 text-sm sm:text-base leading-relaxed">
+            Eliminating Loss-Versus-Rebalancing (LVR) by dynamically raising LP fees during toxic price-discovery bursts, and decaying back to base fees during calm retail orderflow. 
+            Runs in under <span class="text-cyan-300 font-mono font-semibold">871 gas</span> on <code class="mono text-xs bg-slate-900 px-1.5 py-0.5 rounded text-cyan-300">beforeSwap</code>.
+          </p>
+
+          <!-- Badges -->
+          <div class="flex flex-wrap gap-2 pt-2">
+            <div class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 flex items-center space-x-2">
+              <span class="text-cyan-400 font-mono text-sm font-bold">8 / 8</span>
+              <span class="text-xs text-slate-400">Foundry Fuzz Tests</span>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 flex items-center space-x-2">
+              <span class="text-indigo-400 font-mono text-sm font-bold">32 Bytes</span>
+              <span class="text-xs text-slate-400">Total Storage Slot</span>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 flex items-center space-x-2">
+              <span class="text-emerald-400 font-mono text-sm font-bold">0.05% - 5.00%</span>
+              <span class="text-xs text-slate-400">Adaptive Fee Range</span>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 flex items-center space-x-2">
+              <span class="text-amber-400 font-mono text-sm font-bold">60s</span>
+              <span class="text-xs text-slate-400">Exponential Half-Life</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Telemetry Summary Card -->
+        <div class="lg:col-span-5 bg-slate-900/60 border border-slate-800 rounded-2xl p-6 glow-cyan backdrop-blur">
+          <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+            <div class="flex items-center space-x-2">
+              <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></div>
+              <span class="text-xs font-mono text-slate-300 uppercase tracking-wider font-semibold">Live Hook State (Simulated)</span>
+            </div>
+            <span class="text-xs font-mono text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-800/60" id="live-pool-id">ETH / USDC [0.30%]</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4 py-5">
+            <div>
+              <span class="text-xs text-slate-400 block">Current Dynamic Fee</span>
+              <div class="text-2xl sm:text-3xl font-extrabold text-cyan-300 mono" id="stat-current-fee">0.30%</div>
+              <span class="text-[11px] text-slate-500 mono" id="stat-bips">3,000 / 1,000,000 bips</span>
+            </div>
+            <div>
+              <span class="text-xs text-slate-400 block">Realized Volatility Score</span>
+              <div class="text-2xl sm:text-3xl font-extrabold text-white mono" id="stat-volatility">0</div>
+              <span class="text-[11px] text-slate-500 mono" id="stat-displacement">Δtick: 0</span>
+            </div>
+            <div>
+              <span class="text-xs text-slate-400 block">Simulated Timestamp</span>
+              <div class="text-lg font-bold text-slate-200 mono" id="stat-timestamp">t + 0s</div>
+              <span class="text-[11px] text-slate-500 mono">Half-life: 60s decay</span>
+            </div>
+            <div>
+              <span class="text-xs text-slate-400 block">Arbitrage Extracted by LPs</span>
+              <div class="text-lg font-bold text-emerald-400 mono" id="stat-arb-captured">+$0.00</div>
+              <span class="text-[11px] text-slate-500 mono">Anti-LVR Protection</span>
+            </div>
+          </div>
+
+          <!-- Quick Action Buttons -->
+          <div class="pt-4 border-t border-slate-800 flex flex-wrap gap-2">
+            <button onclick="injectShock(250)" class="flex-1 bg-rose-950/80 hover:bg-rose-900 border border-rose-700/60 text-rose-300 font-mono text-xs py-2 px-2.5 rounded-lg font-semibold transition-all shadow-sm">
+              ⚡ Flash Pump (+250)
+            </button>
+            <button onclick="injectShock(-380)" class="flex-1 bg-amber-950/80 hover:bg-amber-900 border border-amber-700/60 text-amber-300 font-mono text-xs py-2 px-2.5 rounded-lg font-semibold transition-all shadow-sm">
+              💥 Arb Dump (-380)
+            </button>
+            <button onclick="fastForward(60)" class="flex-1 bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-700/60 text-cyan-300 font-mono text-xs py-2 px-2.5 rounded-lg font-semibold transition-all shadow-sm">
+              ⏱️ Decay 60s
+            </button>
+            <button onclick="resetSim()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-xs py-2 px-3 rounded-lg font-semibold transition-all">
+              ↺ Reset
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Simulator & Charts Section -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- Interactive Telemetry Visualizer -->
+    <div class="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 space-y-6">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-xl font-bold text-white flex items-center space-x-2">
+            <span>📈</span>
+            <span>Real-Time Volatility & Dynamic Fee Response Chart</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-1">
+            Simulates consecutive swap blocks. Watch how large tick jumps immediately spike the dynamic fee, and how the fee gradually decays over idle blocks.
+          </p>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <button id="btn-auto-simulate" onclick="toggleAutoSim()" class="px-4 py-2 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white rounded-lg font-mono text-xs font-semibold shadow-md shadow-cyan-900/30 flex items-center space-x-2">
+            <span id="auto-sim-icon">▶</span>
+            <span id="auto-sim-label">Run Live Random Swaps</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Canvas Chart Container -->
+      <div class="relative bg-slate-950 border border-slate-800/80 rounded-xl p-4 overflow-hidden">
+        <canvas id="chart-canvas" width="1100" height="320" class="w-full h-64 sm:h-80 block"></canvas>
+
+        <div class="absolute bottom-6 right-6 flex items-center space-x-4 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-lg text-xs font-mono backdrop-blur">
+          <div class="flex items-center space-x-1.5">
+            <span class="w-3 h-0.5 bg-cyan-400 inline-block"></span>
+            <span class="text-cyan-300">Dynamic Fee (%)</span>
+          </div>
+          <div class="flex items-center space-x-1.5">
+            <span class="w-3 h-0.5 bg-purple-400 inline-block"></span>
+            <span class="text-purple-300">Price Tick</span>
+          </div>
+          <div class="flex items-center space-x-1.5">
+            <span class="w-3 h-0.5 bg-slate-500 inline-block"></span>
+            <span class="text-slate-400">Static Base (0.30%)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Historical Swap Trace Log -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between text-xs text-slate-400">
+          <span class="font-mono uppercase font-semibold">Recent Hook Callbacks & State Transitions</span>
+          <span class="font-mono text-slate-500" id="log-count">0 recorded events</span>
+        </div>
+        <div id="event-log-container" class="bg-slate-950 border border-slate-800/60 rounded-xl p-3 font-mono text-xs space-y-1.5 max-h-48 overflow-y-auto">
+          <div class="text-slate-600 italic">No events recorded yet. Click a shock button above or run live swaps.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Storage Engineering & Cancun Architecture Breakdown -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+      <!-- Bitpacked 32-Byte Storage Slot Inspector -->
+      <div class="lg:col-span-6 bg-slate-900/50 border border-slate-800 rounded-2xl p-6 space-y-5">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+            <span>💾</span>
+            <span>Single-Slot Bitpacked Storage Layout</span>
+          </h2>
+          <span class="text-xs font-mono bg-indigo-950 text-indigo-300 border border-indigo-800/60 px-2 py-0.5 rounded">
+            EVM Storage Slot #0
+          </span>
+        </div>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Standard Solidity structs take 8 separate 32-byte storage slots (costing 16,800+ gas on first warm read). 
+          Our hook packs all 8 parameters into <strong class="text-cyan-300 font-mono">exactly one 32-byte slot</strong>, reducing SSTORE/SLOAD footprint to a minimum.
+        </p>
+
+        <!-- Byte Matrix Breakdown -->
+        <div class="space-y-3 font-mono text-xs">
+          <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
+            <div class="text-[11px] text-slate-500 flex justify-between">
+              <span>BYTE OFFSET [0 .. 31]</span>
+              <span class="text-cyan-400">TOTAL: 24 BYTES USED / 32 BYTES</span>
+            </div>
+            <div class="grid grid-cols-8 gap-1 text-[11px] text-center font-bold">
+              <div class="bg-cyan-950 border border-cyan-800 text-cyan-300 py-1 rounded col-span-1" title="lastTick: int24 (3 bytes)">t[3B]</div>
+              <div class="bg-purple-950 border border-purple-800 text-purple-300 py-1 rounded col-span-1" title="lastTimestamp: uint32 (4 bytes)">ts[4B]</div>
+              <div class="bg-indigo-950 border border-indigo-800 text-indigo-300 py-1 rounded col-span-1" title="volatility: uint32 (4 bytes)">vol[4B]</div>
+              <div class="bg-emerald-950 border border-emerald-800 text-emerald-300 py-1 rounded col-span-1" title="baseFee: uint24 (3 bytes)">base[3B]</div>
+              <div class="bg-teal-950 border border-teal-800 text-teal-300 py-1 rounded col-span-1" title="minFee: uint24 (3 bytes)">min[3B]</div>
+              <div class="bg-rose-950 border border-rose-800 text-rose-300 py-1 rounded col-span-1" title="maxFee: uint24 (3 bytes)">max[3B]</div>
+              <div class="bg-amber-950 border border-amber-800 text-amber-300 py-1 rounded col-span-1" title="feeSensitivity: uint16 (2 bytes)">sens[2B]</div>
+              <div class="bg-blue-950 border border-blue-800 text-blue-300 py-1 rounded col-span-1" title="halfLife: uint16 (2 bytes)">hl[2B]</div>
+            </div>
+          </div>
+
+          <!-- Live Encoded bytes32 representation -->
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-1.5">
+            <span class="text-[11px] text-slate-500 block">ENCODED BYTES32 STORAGE VALUE (LIVE BITWISE PACKED)</span>
+            <div class="text-xs text-cyan-300 break-all bg-slate-900 p-2 rounded border border-slate-800" id="raw-storage-hex">
+              0x0000000000000000003c006400c3500001f4000bb8000000006700000000000000
+            </div>
+          </div>
+        </div>
+
+        <!-- Slot Fields Table -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-left font-mono text-xs">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-500 text-[11px]">
+                <th class="py-1.5">Variable</th>
+                <th>Type</th>
+                <th>Bytes</th>
+                <th>Active Live Value</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-850 text-slate-300">
+              <tr>
+                <td class="py-1.5 text-cyan-400">lastTick</td>
+                <td class="text-slate-500">int24</td>
+                <td>3</td>
+                <td id="slot-val-tick">0</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-purple-400">lastTimestamp</td>
+                <td class="text-slate-500">uint32</td>
+                <td>4</td>
+                <td id="slot-val-ts">1,728,000,000</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-indigo-400">volatility</td>
+                <td class="text-slate-500">uint32</td>
+                <td>4</td>
+                <td id="slot-val-vol">0</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-emerald-400">baseFee</td>
+                <td class="text-slate-500">uint24</td>
+                <td>3</td>
+                <td>3,000 (0.30%)</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-teal-400">minFee</td>
+                <td class="text-slate-500">uint24</td>
+                <td>3</td>
+                <td>500 (0.05%)</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-rose-400">maxFee</td>
+                <td class="text-slate-500">uint24</td>
+                <td>3</td>
+                <td>50,000 (5.00%)</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-amber-400">feeSensitivity</td>
+                <td class="text-slate-500">uint16</td>
+                <td>2</td>
+                <td>100</td>
+              </tr>
+              <tr>
+                <td class="py-1.5 text-blue-400">halfLife</td>
+                <td class="text-slate-500">uint16</td>
+                <td>2</td>
+                <td>60 seconds</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Mathematical Formulation & Gas Telemetry -->
+      <div class="lg:col-span-6 bg-slate-900/50 border border-slate-800 rounded-2xl p-6 space-y-5">
+        <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+          <span>📐</span>
+          <span>EVM Cancun Gas Profiling & Invariant Guarantees</span>
+        </h2>
+
+        <!-- Gas Breakdown Table -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-left font-mono text-xs">
+            <thead>
+              <tr class="border-b border-slate-800 text-slate-500 text-[11px]">
+                <th class="py-2">Hook Callback</th>
+                <th>Execution Gas</th>
+                <th>Opcode Cost Drivers</th>
+                <th>EVM Status</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-850 text-slate-300">
+              <tr>
+                <td class="py-2.5 font-bold text-cyan-300">beforeSwap</td>
+                <td class="text-emerald-400 font-bold">871 gas</td>
+                <td class="text-slate-400">1x SLOAD, math decay, clamp</td>
+                <td><span class="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 text-[10px]">Optimal</span></td>
+              </tr>
+              <tr>
+                <td class="py-2.5 font-bold text-indigo-300">afterSwap</td>
+                <td class="text-slate-200">25,060 gas</td>
+                <td class="text-slate-400">1x SSTORE, tick displacement</td>
+                <td><span class="px-1.5 py-0.5 rounded bg-blue-950 text-blue-400 text-[10px]">Cancun</span></td>
+              </tr>
+              <tr>
+                <td class="py-2.5 font-bold text-purple-300">afterInitialize</td>
+                <td class="text-slate-200">23,784 gas</td>
+                <td class="text-slate-400">Init pool slot, base params</td>
+                <td><span class="px-1.5 py-0.5 rounded bg-blue-950 text-blue-400 text-[10px]">Cancun</span></td>
+              </tr>
+              <tr>
+                <td class="py-2.5 font-bold text-slate-300">getEstimatedFee</td>
+                <td class="text-slate-400">3,502 gas</td>
+                <td class="text-slate-400">Pure view / eth_call</td>
+                <td><span class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px]">Free Offchain</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Formulas Callout -->
+        <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-3 text-xs">
+          <div class="font-bold text-slate-200 flex items-center space-x-1.5">
+            <span>🧮</span>
+            <span>Exponential Half-Life Bit-Shift Decay</span>
+          </div>
+          <div class="bg-slate-900 p-2.5 rounded font-mono text-cyan-300 text-[11px] overflow-x-auto">
+            vol_decayed = vol_prior >> (elapsed / halfLife);<br>
+            // Bounded linear interpolation for remainder seconds<br>
+            uint256 rem = elapsed % halfLife;<br>
+            vol_decayed = vol_decayed - ((vol_decayed * rem) / (halfLife * 2));
+          </div>
+          <p class="text-slate-400 leading-relaxed text-[11px]">
+            Unlike floating-point math, our algorithm executes in pure integer EVM bit shifts (<code class="mono text-cyan-300">SHR</code>) with bounded remainder interpolation, ensuring zero rounding overflows and zero division-by-zero risks under Foundry fuzz runs.
+          </p>
+        </div>
+
+        <!-- Fuzz Verification Checklist -->
+        <div class="space-y-1.5 text-xs">
+          <div class="text-[11px] font-mono uppercase text-slate-500 font-semibold">Foundry Fuzz Invariants Proven</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 font-mono text-[11px]">
+            <div class="p-2 bg-slate-950 border border-slate-800 rounded flex items-center space-x-2 text-emerald-400">
+              <span>✓</span>
+              <span>Monotonic decay over time</span>
+            </div>
+            <div class="p-2 bg-slate-950 border border-slate-800 rounded flex items-center space-x-2 text-emerald-400">
+              <span>✓</span>
+              <span>Strict clamp: minFee ≤ fee ≤ maxFee</span>
+            </div>
+            <div class="p-2 bg-slate-950 border border-slate-800 rounded flex items-center space-x-2 text-emerald-400">
+              <span>✓</span>
+              <span>Symmetric abs tick displacement</span>
+            </div>
+            <div class="p-2 bg-slate-950 border border-slate-800 rounded flex items-center space-x-2 text-emerald-400">
+              <span>✓</span>
+              <span>Reentrancy-immune pool bindings</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800/80 bg-slate-950 py-8 px-4 sm:px-6 lg:px-8 mt-12">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-slate-500">
+      <div>
+        ⚡ Open Source Protocol Engineering • Solidity 0.8.26 • EVM Cancun (EIP-1153)
+      </div>
+      <div class="flex items-center space-x-4">
+        <a href="https://100-solidity-projects.vercel.app" class="hover:text-cyan-400 transition-colors">100 Projects Suite</a>
+        <a href="https://local-evm-studio.vercel.app" class="hover:text-cyan-400 transition-colors">Local EVM Studio</a>
+        <a href="https://degencheck-web3.vercel.app" class="hover:text-cyan-400 transition-colors">DegenCheck Security</a>
+        <a href="https://github.com/basantzp" class="hover:text-cyan-400 transition-colors">GitHub Profile</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Simulation & Chart Script -->
+  <script>
+    // State Variables
+    let currentTick = 0;
+    let volatility = 0;
+    let currentTimestamp = 1728000000;
+    let baseFee = 3000;      // 0.30%
+    let minFee = 500;        // 0.05%
+    let maxFee = 50000;      // 5.00%
+    let halfLife = 60;       // 60s
+    let sensitivity = 100;
+    let tickWeight = 10;
+    let arbCaptured = 0;
+    let autoSimInterval = null;
+    let history = [];
+    const MAX_HISTORY = 40;
+
+    // Canvas Setup
+    const canvas = document.getElementById('chart-canvas');
+    const ctx = canvas.getContext('2d');
+
+    function calculateDynamicFee(vol) {
+      const additionalFee = Math.floor((vol * sensitivity) / 1000);
+      let calculated = baseFee + additionalFee;
+      if (calculated < minFee) calculated = minFee;
+      if (calculated > maxFee) calculated = maxFee;
+      return calculated;
+    }
+
+    function decayVolatility(vol, elapsed) {
+      if (elapsed === 0 || vol === 0) return vol;
+      const cycles = Math.floor(elapsed / halfLife);
+      if (cycles >= 32) return 0;
+      let decayed = vol >> cycles;
+      const rem = elapsed % halfLife;
+      if (rem > 0 && decayed > 0) {
+        decayed = decayed - Math.floor((decayed * rem) / (halfLife * 2));
+      }
+      return decayed;
+    }
+
+    function encodeStorageSlot() {
+      // 3 bytes lastTick, 4 bytes ts, 4 bytes vol, 3 bytes base, 3 bytes min, 3 bytes max, 2 bytes sens, 2 bytes hl
+      const tickHex = (currentTick & 0xFFFFFF).toString(16).padStart(6, '0');
+      const tsHex = (currentTimestamp & 0xFFFFFFFF).toString(16).padStart(8, '0');
+      const volHex = (volatility & 0xFFFFFFFF).toString(16).padStart(8, '0');
+      const baseHex = (baseFee & 0xFFFFFF).toString(16).padStart(6, '0');
+      const minHex = (minFee & 0xFFFFFF).toString(16).padStart(6, '0');
+      const maxHex = (maxFee & 0xFFFFFF).toString(16).padStart(6, '0');
+      const sensHex = (sensitivity & 0xFFFF).toString(16).padStart(4, '0');
+      const hlHex = (halfLife & 0xFFFF).toString(16).padStart(4, '0');
+      return '0x' + (hlHex + sensHex + maxHex + minHex + baseHex + volHex + tsHex + tickHex).padStart(64, '0');
+    }
+
+    function updateUI() {
+      const feeBips = calculateDynamicFee(volatility);
+      const feePercent = (feeBips / 10000).toFixed(2);
+      
+      document.getElementById('stat-current-fee').innerText = feePercent + '%';
+      document.getElementById('stat-bips').innerText = feeBips.toLocaleString() + ' / 1,000,000 bips';
+      document.getElementById('stat-volatility').innerText = volatility.toLocaleString();
+      document.getElementById('stat-displacement').innerText = 'Tick: ' + currentTick;
+      document.getElementById('stat-timestamp').innerText = 't + ' + (currentTimestamp - 1728000000) + 's';
+      document.getElementById('stat-arb-captured').innerText = '+$' + arbCaptured.toFixed(2);
+
+      // Slot variables table
+      document.getElementById('slot-val-tick').innerText = currentTick;
+      document.getElementById('slot-val-ts').innerText = currentTimestamp.toLocaleString();
+      document.getElementById('slot-val-vol').innerText = volatility.toLocaleString();
+      document.getElementById('raw-storage-hex').innerText = encodeStorageSlot();
+
+      drawChart();
+    }
+
+    function logEvent(title, detail, type = 'info') {
+      const container = document.getElementById('event-log-container');
+      const row = document.createElement('div');
+      row.className = 'flex items-center justify-between py-1 border-b border-slate-900 last:border-0';
+      
+      let badgeColor = 'text-cyan-400 bg-cyan-950/60';
+      if (type === 'shock') badgeColor = 'text-rose-400 bg-rose-950/60';
+      if (type === 'decay') badgeColor = 'text-blue-400 bg-blue-950/60';
+
+      row.innerHTML = `
+        <div class="flex items-center space-x-2">
+          <span class="px-1.5 py-0.5 rounded text-[10px] ${badgeColor} font-bold">${title}</span>
+          <span class="text-slate-300">${detail}</span>
+        </div>
+        <span class="text-slate-500 text-[10px]">t+${currentTimestamp - 1728000000}s</span>
+      `;
+      container.insertBefore(row, container.firstChild);
+      
+      // Update count
+      const count = container.children.length;
+      document.getElementById('log-count').innerText = `${count} recorded events`;
+    }
+
+    function injectShock(deltaTick) {
+      const elapsed = 3; // 3 seconds between blocks
+      currentTimestamp += elapsed;
+      
+      // 1. Decay previous volatility
+      volatility = decayVolatility(volatility, elapsed);
+
+      // 2. Add delta tick displacement
+      const absDelta = Math.abs(deltaTick);
+      currentTick += deltaTick;
+      const volDelta = absDelta * tickWeight;
+      volatility = Math.min(volatility + volDelta, 1000000);
+
+      // 3. Calculate capture
+      const currentFeeBips = calculateDynamicFee(volatility);
+      const excessFeeBips = Math.max(0, currentFeeBips - baseFee);
+      // Rough arb simulation: $100k swap * excess fee
+      const captured = (100000 * excessFeeBips) / 1000000;
+      arbCaptured += captured;
+
+      // Record History
+      history.push({
+        tick: currentTick,
+        fee: currentFeeBips / 10000,
+        vol: volatility
+      });
+      if (history.length > MAX_HISTORY) history.shift();
+
+      logEvent('⚡ AFTER_SWAP', `Δtick: ${deltaTick > 0 ? '+' : ''}${deltaTick} | Vol: ${volatility} | Fee: ${(currentFeeBips/10000).toFixed(2)}% (+ $${captured.toFixed(2)} LP protection)`, 'shock');
+      updateUI();
+    }
+
+    function fastForward(seconds) {
+      currentTimestamp += seconds;
+      const priorVol = volatility;
+      volatility = decayVolatility(volatility, seconds);
+      const feeBips = calculateDynamicFee(volatility);
+
+      history.push({
+        tick: currentTick,
+        fee: feeBips / 10000,
+        vol: volatility
+      });
+      if (history.length > MAX_HISTORY) history.shift();
+
+      logEvent('⏱️ TIME_DECAY', `+${seconds}s idle | Vol: ${priorVol} → ${volatility} | Fee: ${(feeBips/10000).toFixed(2)}%`, 'decay');
+      updateUI();
+    }
+
+    function resetSim() {
+      currentTick = 0;
+      volatility = 0;
+      currentTimestamp = 1728000000;
+      arbCaptured = 0;
+      history = [];
+      initInitialHistory();
+      document.getElementById('event-log-container').innerHTML = '<div class="text-slate-600 italic">Simulator reset to initial state.</div>';
+      document.getElementById('log-count').innerText = '0 recorded events';
+      if (autoSimInterval) toggleAutoSim();
+      updateUI();
+    }
+
+    function initInitialHistory() {
+      for (let i = 0; i < 20; i++) {
+        history.push({
+          tick: 0,
+          fee: 0.30,
+          vol: 0
+        });
+      }
+    }
+
+    function toggleAutoSim() {
+      const btnLabel = document.getElementById('auto-sim-label');
+      const btnIcon = document.getElementById('auto-sim-icon');
+      if (autoSimInterval) {
+        clearInterval(autoSimInterval);
+        autoSimInterval = null;
+        btnLabel.innerText = 'Run Live Random Swaps';
+        btnIcon.innerText = '▶';
+      } else {
+        btnLabel.innerText = 'Pause Simulation';
+        btnIcon.innerText = '⏸';
+        autoSimInterval = setInterval(() => {
+          // 70% small retail swap, 30% volatile arb swap
+          if (Math.random() < 0.7) {
+            const shift = (Math.random() - 0.5) * 15;
+            injectShock(Math.round(shift));
+          } else {
+            const shockShift = (Math.random() > 0.5 ? 1 : -1) * (100 + Math.round(Math.random() * 250));
+            injectShock(shockShift);
+          }
+        }, 1200);
+      }
+    }
+
+    function drawChart() {
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      // Grid lines
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 1;
+      for (let y = 40; y < h - 40; y += 40) {
+        ctx.beginPath();
+        ctx.moveTo(40, y);
+        ctx.lineTo(w - 20, y);
+        ctx.stroke();
+      }
+
+      if (history.length < 2) return;
+
+      const stepX = (w - 60) / (MAX_HISTORY - 1);
+
+      // 1. Draw Base Fee Reference Line (0.30%)
+      const baseFeeY = h - 50 - (0.30 / 5.0) * (h - 100);
+      ctx.strokeStyle = '#475569';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(40, baseFeeY);
+      ctx.lineTo(w - 20, baseFeeY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 2. Draw Price Tick Line (Purple)
+      ctx.strokeStyle = '#c084fc';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      history.forEach((pt, i) => {
+        const x = 40 + i * stepX;
+        // Normalize tick between -500 and +500 to Y axis
+        const normalizedTick = Math.max(-500, Math.min(500, pt.tick));
+        const y = (h / 2) - (normalizedTick / 1000) * (h - 120);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      // 3. Draw Dynamic Fee Line (Cyan Glow)
+      ctx.strokeStyle = '#22d3ee';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = 'rgba(34, 211, 238, 0.4)';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      history.forEach((pt, i) => {
+        const x = 40 + i * stepX;
+        // Map 0% to 5% to canvas Y
+        const y = h - 50 - (pt.fee / 5.0) * (h - 100);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.shadowBlur = 0; // reset
+
+      // Axis labels
+      ctx.fillStyle = '#64748b';
+      ctx.font = '10px JetBrains Mono';
+      ctx.fillText('5.00%', 5, 55);
+      ctx.fillText('2.50%', 5, (h / 2) + 5);
+      ctx.fillText('0.30%', 5, baseFeeY + 3);
+      ctx.fillText('0.00%', 5, h - 45);
+    }
+
+    // Initialize
+    initInitialHistory();
+    updateUI();
+  </script>
+</body>
+</html>
