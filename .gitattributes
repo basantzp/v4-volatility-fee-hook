@@ -1,0 +1,4 @@
+# GitHub Linguist language overrides
+web/* linguist-documentation
+*.html linguist-documentation
+*.json linguist-documentation

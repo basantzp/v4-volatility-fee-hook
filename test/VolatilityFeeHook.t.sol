@@ -137,6 +137,17 @@ contract VolatilityFeeHookTest is Test, Deployers {
         assertEq(decayedFee, 3000); // Decayed back to base fee
     }
 
+    function test_FeeConfig_UpdateAndValidation() public {
+        hook.setFeeConfiguration(poolId, 4000, 1000, 60000, 200, 120);
+
+        uint24 estimatedFee = hook.getEstimatedFee(poolId);
+        assertEq(estimatedFee, 4000);
+
+        // Invalid config reverts
+        vm.expectRevert(VolatilityFeeHook.InvalidFeeConfiguration.selector);
+        hook.setFeeConfiguration(poolId, 1000, 5000, 60000, 200, 120); // min > base
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                                 FUZZ TESTS                                 */
     /* -------------------------------------------------------------------------- */

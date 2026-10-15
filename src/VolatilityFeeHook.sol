@@ -258,4 +258,33 @@ contract VolatilityFeeHook is IHooks {
                 decayedVol, state.baseFee, state.minFee, state.maxFee, state.feeSensitivity
             );
     }
+
+    /// @notice Update fee parameters for a registered pool
+    /// @param poolId Identifier of the pool
+    /// @param baseFee New baseline swap fee
+    /// @param minFee New minimum fee floor
+    /// @param maxFee New maximum fee cap
+    /// @param feeSensitivity New sensitivity multiplier
+    /// @param halfLife New half-life decay period in seconds
+    function setFeeConfiguration(
+        PoolId poolId,
+        uint24 baseFee,
+        uint24 minFee,
+        uint24 maxFee,
+        uint16 feeSensitivity,
+        uint32 halfLife
+    ) external {
+        if (minFee > baseFee || baseFee > maxFee || maxFee > LPFeeLibrary.MAX_LP_FEE || halfLife == 0) {
+            revert InvalidFeeConfiguration();
+        }
+
+        VolatilityState storage state = poolStates[poolId];
+        state.baseFee = baseFee;
+        state.minFee = minFee;
+        state.maxFee = maxFee;
+        state.feeSensitivity = feeSensitivity;
+        state.halfLife = halfLife;
+
+        emit FeeConfigUpdated(poolId, baseFee, minFee, maxFee);
+    }
 }
