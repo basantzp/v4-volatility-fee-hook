@@ -2,7 +2,7 @@
 
 > **Repository**: [`basantzp/v4-volatility-fee-hook`](https://github.com/basantzp/v4-volatility-fee-hook)  
 > **Compiler**: Solc `0.8.26` (Cancun EVM)  
-> **Last Verification Run**: `2026-10-26 19:04:04 +0545`  
+> **Last Verification Run**: `2026-10-26 21:43:49 +0545`  
 > **Dynamic Fee Status**: 🟢 **Operational & Bounds Verified**  
 > **Author**: `basantzp <basantpok90@gmail.com>`
 
@@ -15,14 +15,14 @@
 
 ### Verification Summary
 ```text
-[PASS] testFuzz_AbsTickDelta(int24,int24) (runs: 256, μ: 1170, ~: 1172)
+[PASS] testFuzz_AbsTickDelta(int24,int24) (runs: 256, μ: 1172, ~: 1172)
 [PASS] testFuzz_CalculateDynamicFee_StrictBounds(uint32,uint16) (runs: 256, μ: 1073, ~: 1070)
-[PASS] testFuzz_VolatilityDecay_Monotonic(uint32,uint32) (runs: 256, μ: 1040, ~: 919)
+[PASS] testFuzz_VolatilityDecay_Monotonic(uint32,uint32) (runs: 256, μ: 1033, ~: 919)
 [PASS] test_FeeConfig_UpdateAndValidation() (gas: 75220)
 [PASS] test_InitialPoolState() (gas: 11344)
 [PASS] test_InitialSwapAppliesBaseFee() (gas: 197931)
 [PASS] test_RevertIf_NotDynamicFeePool() (gas: 73216)
 [PASS] test_RevertIf_NotPoolManager() (gas: 83050)
 [PASS] test_TimeDecay_ReducesVolatilityToFloor() (gas: 188148)
-Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 57.95ms (16.33ms CPU time)
+Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 61.12ms (17.24ms CPU time)
 ```
