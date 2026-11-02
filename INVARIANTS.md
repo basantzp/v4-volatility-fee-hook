@@ -2,7 +2,7 @@
 
 > **Repository**: [`basantzp/v4-volatility-fee-hook`](https://github.com/basantzp/v4-volatility-fee-hook)  
 > **Compiler**: Solc `0.8.26` (Cancun EVM)  
-> **Last Verification Run**: `2026-11-02 05:39:39 +0545`  
+> **Last Verification Run**: `2026-11-02 20:58:45 +0545`  
 > **Dynamic Fee Status**: 🟢 **Operational & Bounds Verified**  
 > **Author**: `basantzp <basantpok90@gmail.com>`
 
@@ -15,7 +15,7 @@
 
 ### Verification Summary
 ```text
-[PASS] testFuzz_AbsTickDelta(int24,int24) (runs: 256, μ: 1172, ~: 1172)
+[PASS] testFuzz_AbsTickDelta(int24,int24) (runs: 256, μ: 1171, ~: 1172)
 [PASS] testFuzz_CalculateDynamicFee_StrictBounds(uint32,uint16) (runs: 256, μ: 1073, ~: 1070)
 [PASS] testFuzz_VolatilityDecay_Monotonic(uint32,uint32) (runs: 256, μ: 1025, ~: 919)
 [PASS] test_FeeConfig_UpdateAndValidation() (gas: 75220)
@@ -24,5 +24,5 @@
 [PASS] test_RevertIf_NotDynamicFeePool() (gas: 73216)
 [PASS] test_RevertIf_NotPoolManager() (gas: 83050)
 [PASS] test_TimeDecay_ReducesVolatilityToFloor() (gas: 188148)
-Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 57.27ms (14.89ms CPU time)
+Suite result: ok. 9 passed; 0 failed; 0 skipped; finished in 145.95ms (57.95ms CPU time)
 ```
